@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Dashboard</h2>
+<p>Name: {{ user.name }}</p>
+<p>Email: {{ user.email }}</p>
+<p>Years of Experience: {{ user.years_experience }}</p>
+<p>Performance Score: {{ user.performance_score }}</p>
+<p>Active Projects: {{ user.active_projects }}</p>
+<p>Industry Verticals: {{ user.industry_verticals }}</p>
+<p>Technology Stack: {{ user.technology_stack }}</p>
+<p>Project Status: {{ user.project_status }}</p>
+<a href="{{ url_for('logout') }}">Logout</a>
+{% endblock %}

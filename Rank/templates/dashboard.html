@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - Startup-PM Matchmaking</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <style>
+        body {
+            background-color: #f8f9fa;
+        }
+        .dashboard-container {
+            margin-top: 50px;
+            padding: 20px;
+            background-color: white;
+            border-radius: 10px;
+            box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.1);
+        }
+        .dashboard-title {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .card {
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="dashboard-container">
+            <h2 class="dashboard-title">Welcome to Your Dashboard, {{ user.name }}</h2>
+
+            <!-- User Details Card -->
+            <div class="card">
+                <div class="card-header">
+                    Your Details
+                </div>
+                <div class="card-body">
+                    <p><strong>Name:</strong> {{ user.name }}</p>
+                    <p><strong>Email:</strong> {{ user.email }}</p>
+                    <p><strong>Years of Experience:</strong> {{ user.years_experience }}</p>
+                    <p><strong>Performance Score:</strong> {{ user.performance_score }}</p>
+                    <p><strong>Active Projects:</strong> {{ user.active_projects }}</p>
+                </div>
+            </div>
+
+            <!-- Industry Vertical and Technology Stack -->
+            <div class="card">
+                <div class="card-header">
+                    Industry and Technology
+                </div>
+                <div class="card-body">
+                    <p><strong>Industry Verticals:</strong> {{ ', '.join(user.industry_verticals) }}</p>
+                    <p><strong>Technology Stack:</strong> {{ ', '.join(user.technology_stack) }}</p>
+                    <p><strong>Preferred Project Statuses:</strong> {{ ', '.join(user.project_status) }}</p>
+                </div>
+            </div>
+
+            <!-- Startups/Projects Matching Section -->
+            <div class="card">
+                <div class="card-header">
+                    Matched Startups/Projects
+                </div>
+                <div class="card-body">
+                    <p>Matched startups and projects will be displayed here based on your profile and preferences.</p>
+                    <!-- Example matching projects can be rendered dynamically -->
+                    <ul>
+                        <li>Startup 1 - Fintech - Python, AWS</li>
+                        <li>Startup 2 - Healthcare - React, Node.js</li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- Logout Button -->
+            <div class="text-center mt-4">
+                <a href="{{ url_for('logout') }}" class="btn btn-danger">Logout</a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap JS and dependencies -->
+    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.9.2/dist/umd/popper.min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+</body>
+</html>
