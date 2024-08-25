@@ -3,7 +3,7 @@ from flask_pymongo import PyMongo
 from flask_bcrypt import Bcrypt
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 from bson.objectid import ObjectId
-from allot import allot_projects
+from rank import ProductManager, rank_pm, generate_feedback
 import os
 
 app = Flask(__name__)
@@ -17,38 +17,82 @@ bcrypt = Bcrypt(app)
 login_manager = LoginManager(app)
 login_manager.login_view = 'login'
 
-# Product Manager Model
-class ProductManager(UserMixin):
-    def __init__(self, name, email, password, years_experience, performance_score, active_projects, industry_verticals, technology_stack, project_status, _id=None):
-        self.id = _id
-        self.name = name
-        self.email = email
-        self.password = password
-        self.years_experience = years_experience
-        self.performance_score = performance_score
-        self.active_projects = active_projects
-        self.industry_verticals = industry_verticals
-        self.technology_stack = technology_stack
-        self.project_status = project_status
-
-
 @login_manager.user_loader
 def load_user(user_id):
     user_data = mongo.db.product_managers.find_one({"_id": ObjectId(user_id)})
     if user_data:
         return ProductManager(
             name=user_data.get('name'),
-            email=user_data.get('email'),
-            password=user_data.get('password'),
-            years_experience=user_data.get('years_experience'),
-            performance_score=user_data.get('performance_score'),
-            active_projects=user_data.get('active_projects'),
-            industry_verticals=user_data.get('industry_verticals'),
-            technology_stack=user_data.get('technology_stack'),
-            project_status=user_data.get('project_status'),
-            _id=user_id
+            industry_priorities=user_data.get('industry_verticals'),
+            tech_priorities=user_data.get('technology_stack'),
+            project_status_priorities=user_data.get('project_status'),
+            experience=user_data.get('years_experience', 0),
+            performance_score=user_data.get('performance_score', 0),
+            current_workload=user_data.get('active_projects', 0),
         )
     return None
+
+def fetch_all_startups():
+    return mongo.db.startup_details.find()
+
+def fetch_product_managers():
+    product_managers_data = mongo.db.product_managers.find()
+    product_managers = []
+    
+    for pm_data in product_managers_data:
+        pm = ProductManager(
+            name=pm_data['name'],
+            industry_priorities=pm_data.get('industry_verticals', []),
+            tech_priorities=pm_data.get('technology_stack', []),
+            project_status_priorities=pm_data.get('project_status', []),
+            experience=int(pm_data.get('years_experience', 0)),
+            performance_score=int(pm_data.get('performance_score', 0)),
+            current_workload=int(pm_data.get('active_projects', 0))
+        )
+        product_managers.append(pm)
+    
+    return product_managers
+
+def allot_projects():
+    startups = fetch_all_startups()
+    product_managers = fetch_product_managers()
+
+    for startup in startups:
+        # Extract necessary startup details
+        startup_id = str(startup['_id'])
+        problem_statement = startup['problem_statement']
+        tech_stack = startup.get('industry_technology', [])  # Assuming this is a list
+        industry_vertical = startup.get('industry_vertical', '')
+        project_status = startup.get('current_status', '')
+
+        # Rank the PMs based on the startup details
+        ranked_pms = rank_pm(product_managers, tech_stack, industry_vertical, project_status)
+        
+        if not ranked_pms:
+            print(f"No suitable Product Manager found for startup {startup_id}")
+            continue
+
+        # Get the best PM
+        best_pm_name = ranked_pms[0][4]
+
+        # Generate feedback
+        feedback = generate_feedback(ranked_pms, tech_stack, industry_vertical, project_status)
+        print(f'Project for startup {startup_id} has been allotted to {best_pm_name}.')
+        print(feedback)
+
+        # Store the project allotment in the project_details collection
+        project_details = {
+            "startup_id": startup_id,
+            "problem_statement": problem_statement,
+            "tech_stack": tech_stack,
+            "industry_vertical": industry_vertical,
+            "project_status": project_status,
+            "assigned_pm": best_pm_name,
+            "pm_ranking": [pm[4] for pm in ranked_pms],  # Storing the PM ranking order
+            "feedback" : feedback
+        }
+
+        mongo.db.project_details.insert_one(project_details)
 
 @app.route('/')
 def index():
@@ -71,14 +115,12 @@ def signup():
 
         product_manager = {
             'name': data.get('name'),
-            'email': data.get('email'),
-            'password': bcrypt.generate_password_hash(data.get('password')).decode('utf-8'),
-            'years_experience': years_experience,
-            'performance_score': data.get('performance_score'),
-            'active_projects': data.get('active_projects'),
             'industry_verticals': industry_verticals,
             'technology_stack': technology_stack,
-            'project_status': project_status
+            'project_status': project_status,
+            'years_experience': years_experience,
+            'performance_score': data.get('performance_score'),
+            'active_projects': data.get('active_projects')
         }
 
         try:
@@ -98,15 +140,12 @@ def login():
         if user and bcrypt.check_password_hash(user['password'], data['password']):
             login_user(ProductManager(
                 name=user['name'],
-                email=user['email'],
-                password=user['password'],
-                years_experience=user['years_experience'],
+                industry_priorities=user['industry_verticals'],
+                tech_priorities=user['technology_stack'],
+                project_status_priorities=user['project_status'],
+                experience=user['years_experience'],
                 performance_score=user['performance_score'],
-                active_projects=user['active_projects'],
-                industry_verticals=user['industry_verticals'],
-                technology_stack=user['technology_stack'],
-                project_status=user['project_status'],
-                _id=str(user['_id'])
+                current_workload=user['active_projects']
             ))
             return redirect(url_for('dashboard'))
         flash('Invalid email or password', 'danger')
@@ -130,7 +169,6 @@ def logout():
 
 @app.route('/submit', methods=['POST'])
 def submit():
-    # Get data from the form
     form_data = {
         'name': request.form.get('name'),
         'email': request.form.get('email'),
@@ -145,14 +183,12 @@ def submit():
         'industry_technology': request.form.get('industry_technology')
     }
 
-    # Insert the data into MongoDB
     try:
         mongo.db.startup_details.insert_one(form_data)
         allot_projects()
     except Exception as e:
         return f"Error inserting data: {e}", 500
 
-    # Render acknowledgment page
     return render_template('acknowledgment.html')
 
 if __name__ == '__main__':
