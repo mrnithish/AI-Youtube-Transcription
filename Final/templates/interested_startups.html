@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dashboard - {{ user.name }}</title>
+    <title>Interested Startups - {{ user.name }}</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
 </head>
@@ -16,8 +16,8 @@
         </button>
         <div class="collapse navbar-collapse" id="navbarNav">
             <ul class="navbar-nav ml-auto">
-                <li class="nav-item active">
-                    <a class="nav-link" href="#">Dashboard</a>
+                <li class="nav-item">
+                    <a class="nav-link" href="{{ url_for('dashboard') }}">Dashboard</a>
                 </li>
                 <li class="nav-item">
                     <a class="nav-link" href="{{ url_for('logout') }}">Logout</a>
@@ -25,7 +25,6 @@
             </ul>
         </div>
     </nav>
-
     <div class="d-flex">
         <!-- Sidebar -->
         <div class="bg-dark text-white p-3" style="min-width: 200px; height: 100vh;">
@@ -53,70 +52,67 @@
                 </li>
             </ul>
         </div>
+    <div class="container mt-5">
+        <h1 class="text-center">Interested Startups</h1>
 
-        <!-- Main Content -->
-        <div class="container-fluid mt-5">
-            <h1 class="text-center">Welcome, {{ user.name }}!</h1>
-            <p class="text-center">Here are your projects in the 'Ideas' stage:</p>
+        <!-- Check if there are interested startups -->
+        {% if projects %}
+            <table class="table table-bordered table-striped mt-4">
+                <thead class="thead-dark">
+                    <tr>
+                        <th>Startup Name</th>
+                        <th>Problem Statement</th>
+                        <th>Description</th>
+                        <th>Industry Verticals</th>
+                        <th>Tech Stack</th>
+                        <th>BMC Video Link</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <!-- Iterate through interested projects -->
+                    {% for entry in projects %}
+                    <tr>
+                        <td>{{ entry.startup_details.startup_name }}</td>
+                        <td>{{ entry.project.problem_statement }}</td>
+                        <td>{{ entry.startup_details.description }}</td>
+                        <td>{{ entry.startup_details.industry_vertical }}</td>
+                        <td>{{ entry.project.tech_stack }}</td>
+                        <td><a href="{{ entry.startup_details.bmc_video_link }}" target="_blank">View Video</a></td>
+                        <td>
 
-            <!-- Check if there are projects -->
-            {% if projects %}
-                <table class="table table-bordered table-striped mt-4">
-                    <thead class="thead-dark">
-                        <tr>
-                            <th>Startup Name</th>
-                            <th>Problem Statement</th>
-                            <th>Description</th>
-                            <th>Industry Verticals</th>
-                            <th>Tech Stack</th>
-                            <th>BMC Video Link</th>
-                            <th>Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <!-- Iterate through projects -->
-                        {% for entry in projects %}
-                        <tr>
-                            <td>{{ entry.startup_details.startup_name }}</td>
-                            <td>{{ entry.project.problem_statement }}</td>
-                            <td>{{ entry.startup_details.description }}</td>
-                            <td>{{ entry.startup_details.industry_vertical }}</td>
-                            <td>{{ entry.project.tech_stack }}</td>
-                            <td><a href="{{ entry.startup_details.bmc_video_link }}" target="_blank">View Video</a></td>
-                            <td>
-                                <!-- Unique modal trigger -->
-                                <button class="btn btn-primary view-more-btn" 
-                                    data-startup="{{ entry.startup_details.startup_name }}" 
-                                    data-problem="{{ entry.project.problem_statement }}" 
-                                    data-email="{{ entry.startup_details.email }}" 
-                                    data-name="{{ entry.startup_details.name }}" 
-                                    data-status="{{ entry.startup_details.current_status }}" 
-                                    data-institution="{{ entry.startup_details.sns_institution }}" 
-                                    data-team="{{ entry.startup_details.team_details }}" 
-                                    data-industry="{{ entry.startup_details.industry_vertical }}" 
-                                    data-tech="{{ entry.project.tech_stack }}" 
-                                    data-pm="{{ entry.project.assigned_pm }}" 
-                                    data-feedback="{{ entry.project.Feedback }}" 
-                                    data-toggle="modal" data-target="#viewMoreModal">
-                                    View More
-                                </button>
-                                <button class="btn btn-success interested-btn mt-2" 
-                                    data-project-id="{{ entry.project._id }}"> <!-- Note the change here to use _id -->
-                                    Interested
-                                </button>
-                                <button class="btn btn-info send-next-pm-btn mt-2" 
-                                    data-project-id="{{ entry.project._id }}"> <!-- Note the change here to use _id -->
-                                    Send to Next PM
-                                </button>
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            {% else %}
-                <p class="text-center">You have no projects in the 'Ideas' stage at this time.</p>
-            {% endif %}
-        </div>
+                            <form action="{{ url_for('shortlist_startup') }}" method="POST" style="display:inline;">
+                                <input type="hidden" name="project_id" value="{{ entry.project._id }}">
+                                <button type="submit" class="btn btn-success mt-2">Shortlist</button>
+                            </form>
+                            
+                            <button class="btn btn-primary view-more-btn" 
+                                data-startup="{{ entry.startup_details.startup_name }}" 
+                                data-problem="{{ entry.project.problem_statement }}" 
+                                data-email="{{ entry.startup_details.email }}" 
+                                data-name="{{ entry.startup_details.name }}" 
+                                data-status="{{ entry.startup_details.current_status }}" 
+                                data-institution="{{ entry.startup_details.sns_institution }}" 
+                                data-team="{{ entry.startup_details.team_details }}" 
+                                data-industry="{{ entry.startup_details.industry_vertical }}" 
+                                data-tech="{{ entry.project.tech_stack }}" 
+                                data-pm="{{ entry.project.assigned_pm }}" 
+                                data-feedback="{{ entry.project.Feedback }}" 
+                                data-toggle="modal" data-target="#viewMoreModal">
+                                View More
+                            </button>
+                            <form action="{{ url_for('shortlist_startup') }}" method="POST" style="display:inline;">
+                                <input type="hidden" name="project_id" value="{{ entry.project._id }}">
+                                <button type="submit" class="btn btn-success mt-2">Shortlist</button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        {% else %}
+            <p class="text-center">You have no interested startups at this time.</p>
+        {% endif %}
     </div>
 
     <!-- Modal -->
@@ -155,11 +151,10 @@
     <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.5.2/dist/umd/popper.min.js"></script>
     <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
 
-    <!-- Script to handle dynamic modal content and AJAX request -->
+    <!-- Script to handle dynamic modal content -->
     <script>
         $(document).ready(function() {
             $('.view-more-btn').on('click', function() {
-                // Get data attributes from the clicked button
                 var startup = $(this).data('startup');
                 var problem = $(this).data('problem');
                 var email = $(this).data('email');
@@ -172,7 +167,6 @@
                 var pm = $(this).data('pm');
                 var feedback = $(this).data('feedback');
 
-                // Populate the modal with the corresponding data
                 $('#modal-startup').text(startup);
                 $('#modal-problem').text(problem);
                 $('#modal-email').text(email);
@@ -185,25 +179,6 @@
                 $('#modal-pm').text(pm);
                 $('#modal-feedback').text(feedback);
             });
-
-            $('.interested-btn').on('click', function() {
-                var projectId = $(this).data('project-id');
-
-                $.ajax({
-                    url: '/interested',
-                    type: 'POST',
-                    contentType: 'application/json',
-                    data: JSON.stringify({ project_id: projectId }),
-                    success: function(response) {
-                        alert(response.message);
-                    },
-                    error: function(xhr, status, error) {
-                        console.error('AJAX Error:', status, error);
-                        alert('Error marking project as interested. Check console for details.');
-                    }
-                });
-            });
-
         });
     </script>
 </body>
