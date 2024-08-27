@@ -73,7 +73,7 @@ def allot_projects():
             "industry_vertical": industry_vertical,
             "project_status": project_status,
             "assigned_pm": best_pm_name,
-            "assigned_pm_id": best_pm_id,  # Store the PM ID here
+            "assigned_pm_id": str(best_pm_id),  # Store the PM ID here
             "pm_ranking": [{"name": pm[4], "id": next(p.mongo_id for p in product_managers if p.name == pm[4])} for pm in ranked_pms],  # Storing the PM ranking order with IDs
             "Feedback": feedback
         }

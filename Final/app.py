@@ -4,8 +4,9 @@ from flask_bcrypt import Bcrypt
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 from bson.objectid import ObjectId
 from allot import allot_projects
-import os,jsonify
+import os,jsonify,datetime
 from flask import Flask, jsonify, request
+from rank import rank_pm
 
 app = Flask(__name__)
 app.secret_key = os.urandom(24)
@@ -113,72 +114,94 @@ def login():
         flash('Invalid email or password', 'danger')
     return render_template('login.html')
 
-
-
-
 @app.route('/dashboard')
 @login_required
 def dashboard():
-    # Get the current PM's user ID from the database
-    pm_id = mongo.db.product_managers.find_one({"name": current_user.name}, {"_id": 1})['_id']
+    try:
+        # Get the current PM's user ID from the database
+        pm = mongo.db.product_managers.find_one({"name": current_user.name}, {"_id": 1})
+        if not pm:
+            return jsonify({"message": "PM not found"}), 404
 
-    # Check if pm_id already exists in the pm_slots collection
-    pm_slot_exists = mongo.db.pm_slots.find_one({"pm_id": str(pm_id)}, {"_id": 1})
+        pm_id = str(pm['_id'])  # Convert ObjectId to string since assigned_pm_id is a string
 
-    # If pm_id does not exist, update the ideas array
-    if not pm_slot_exists:
-        # Query project_details to find all projects assigned to the current PM using their ID
+        # Step 1: Retrieve existing ideas, interested, shortlisted, and finalized if pm_id already exists in pm_slots
+        pm_slot = mongo.db.pm_slots.find_one({"pm_id": pm_id}, {"ideas": 1, "interested": 1, "shortlisted": 1, "finalized": 1})
+
+        # Initialize the set of existing project IDs in 'ideas'
+        existing_project_ids = set(pm_slot['ideas']) if pm_slot and 'ideas' in pm_slot else set()
+
+        # Also initialize sets for interested, shortlisted, and finalized
+        interested_project_ids = set(pm_slot['interested']) if pm_slot and 'interested' in pm_slot else set()
+        shortlisted_project_ids = set(pm_slot['shortlisted']) if pm_slot and 'shortlisted' in pm_slot else set()
+        finalized_project_ids = set(pm_slot['finalized']) if pm_slot and 'finalized' in pm_slot else set()
+
+        # Query project_details to find all projects assigned to the current PM
         assigned_projects = mongo.db.project_details.find({"assigned_pm_id": pm_id})
 
-        # Create a list to store project IDs
-        project_ids = []
+        # Create a list to store new project IDs as strings
+        new_project_ids = []
 
-        # Iterate through the assigned projects and collect the project IDs
+        # Iterate through the assigned projects
         for project in assigned_projects:
-            project_ids.append(str(project['_id']))  # Store the project ID as a string
+            project_id_str = str(project['_id'])  # Convert ObjectId to string
 
-        # Update the pm_slots collection to store the assigned project IDs in the 'ideas' array
+            # Check if the project is not already in ideas, interested, shortlisted, or finalized
+            if (project_id_str not in existing_project_ids and
+                    project_id_str not in interested_project_ids and
+                    project_id_str not in shortlisted_project_ids and
+                    project_id_str not in finalized_project_ids):
+                new_project_ids.append(project_id_str)
+
+        # Combine existing and new project IDs and remove duplicates by converting to a set
+        combined_project_ids = list(existing_project_ids.union(new_project_ids))
+
+        # Update the pm_slots collection with the unique project IDs for 'ideas'
         mongo.db.pm_slots.update_one(
-            {'pm_id': str(pm_id)},
-            {'$set': {'ideas': project_ids}},
+            {'pm_id': pm_id},  # Match based on pm_id as a string
+            {'$set': {'ideas': combined_project_ids}},  # Set the ideas array with unique project IDs
             upsert=True
         )
 
-    # Step 2: Retrieve and Display Startup Details Based on `ideas` Array
+        # Step 2: Retrieve and Display Startup Details Based on the updated `ideas` array
 
-    # Fetch the `pm_slots` document for the current PM
-    pm_slot = mongo.db.pm_slots.find_one({"pm_id": str(pm_id)}, {"ideas": 1})
+        # Fetch the updated `pm_slots` document for the current PM
+        pm_slot = mongo.db.pm_slots.find_one({"pm_id": pm_id}, {"ideas": 1})
 
-    # Initialize the list to store projects with corresponding startup details
-    projects_with_startup_details = []
+        # Initialize the list to store projects with corresponding startup details
+        projects_with_startup_details = []
 
-    if pm_slot and "ideas" in pm_slot:
-        # Iterate through the 'ideas' array to fetch project and startup details
-        for project_id in pm_slot['ideas']:
-            # Convert project_id to ObjectId and fetch project details
-            project = mongo.db.project_details.find_one({"_id": ObjectId(project_id)})
+        # Check if 'ideas' array is not empty
+        if pm_slot and "ideas" in pm_slot and pm_slot["ideas"]:
+            # There are projects in the 'ideas' array, so fetch and display those projects
+            for project_id in pm_slot['ideas']:
+                # Convert project_id back to ObjectId and fetch project details
+                project = mongo.db.project_details.find_one({"_id": ObjectId(project_id)})
 
-            if project:
-                # Get the startup_id from the project
-                startup_id = project.get('startup_id')
+                if project:
+                    # Get the startup_id from the project
+                    startup_id = project.get('startup_id')
 
-                # Fetch the corresponding startup details using the startup_id
-                startup_details = mongo.db.startup_details.find_one({"_id": ObjectId(startup_id)})
+                    # Fetch the corresponding startup details using the startup_id
+                    startup_details = mongo.db.startup_details.find_one({"_id": ObjectId(startup_id)})
 
-                if startup_details:
-                    # Append project and startup details to the list
-                    projects_with_startup_details.append({
-                        "project": project,
-                        "startup_details": startup_details
-                    })
+                    if startup_details:
+                        # Append project and startup details to the list
+                        projects_with_startup_details.append({
+                            "project": project,
+                            "startup_details": startup_details
+                        })
 
-    # Print debug information
-    print(f"Projects in 'Ideas' for PM ID {pm_id}:")
-    for proj in projects_with_startup_details:
-        print(f"Project ID: {proj['project'].get('_id')}, Startup ID: {proj['project'].get('startup_id')}")
+            # Render the dashboard with the user's projects that are still in the 'Ideas' stage
+            return render_template('dashboard.html', user=current_user, projects=projects_with_startup_details)
 
-    # Render the dashboard with the user's projects that are still in the 'Ideas' stage
-    return render_template('dashboard.html', user=current_user, projects=projects_with_startup_details)
+        else:
+            # No projects in 'ideas', display a message or handle the empty case
+            return render_template('dashboard.html', user=current_user, projects=[], message="No projects in your 'Ideas' stage.")
+
+    except Exception as e:
+        print(f"Error: {e}")
+        return jsonify({'message': 'An error occurred on the server'}), 500
 
 
 
@@ -188,34 +211,72 @@ def dashboard():
 @login_required
 def mark_interested():
     try:
-        data = request.get_json()  # Get JSON data from the request
+        # Get the project_id from the JSON request
+        data = request.get_json()
         project_id = data.get('project_id')
 
         if not project_id:
             return jsonify({'message': 'No project ID provided.'}), 400
 
-        # Fetch the current PM's ID
+        # Ensure project_id is a string
+        if not isinstance(project_id, str):
+            project_id = str(project_id)
+
+        # Get the current PM's ID
         pm_id = current_user.id
 
-        # Update the pm_slots collection:
-        # 1. Remove the project_id from the 'ideas' array.
-        # 2. Add the project_id to the 'interested' array.
-        result = mongo.db.pm_slots.update_one(
-            {'pm_id': pm_id},
-            {
-                '$pull': {'ideas': project_id},       # Remove project_id from ideas array
-                '$addToSet': {'interested': project_id}  # Add project_id to interested array
-            },
-            upsert=True
-        )
+        # Find the PM's slots
+        pm_slots = mongo.db.pm_slots.find_one({'pm_id': pm_id})
 
-        if result.modified_count > 0 or result.upserted_id:
-            return jsonify({'message': 'Project marked as interested!'}), 200
+        if pm_slots:
+            # Get the 'ideas' and 'interested' arrays
+            ideas = pm_slots.get('ideas', [])
+            interested = pm_slots.get('interested', [])
+
+            # Debugging: Print the current state
+            print(f"Current ideas: {ideas}")
+            print(f"Current interested: {interested}")
+
+            # Check if the project_id is in the ideas array and remove it
+            if project_id in ideas:
+                ideas.remove(project_id)
+                print(f"Removed {project_id} from ideas.")
+
+            # Add the project_id to the interested array if it's not already there
+            if project_id not in interested:
+                interested.append(project_id)
+                print(f"Added {project_id} to interested.")
+
+                # Update the document with the new arrays
+                result = mongo.db.pm_slots.update_one(
+                    {'pm_id': pm_id},
+                    {'$set': {'ideas': ideas, 'interested': interested}}
+                )
+
+                # Check if the update was successful
+                if result.modified_count > 0 or result.upserted_id:
+                    message = "Project has been moved to interested."
+                else:
+                    message = "Failed to update pm_slots document."
+            else:
+                message = "Project is already in the interested list."
         else:
-            return jsonify({'message': 'Failed to mark project as interested.'}), 400
+            # If pm_slots doesn't exist, create it with the new interested project
+            mongo.db.pm_slots.insert_one({
+                'pm_id': pm_id,
+                'ideas': [],
+                'interested': [project_id]
+            })
+            message = "Project has been marked as interested."
+
+        return jsonify({'message': message}), 200
+
     except Exception as e:
         print(f"Error occurred: {e}")  # Log the error to the console
         return jsonify({'message': f'Error marking project as interested: {str(e)}'}), 500
+
+
+
 
 
 
@@ -274,6 +335,8 @@ def shortlist_startup():
         message = "Project has been shortlisted."
 
     return redirect(url_for('interested_startups_page'))
+
+
 
 @app.route('/shortlisted_startups')
 @login_required
@@ -354,20 +417,149 @@ def finalized_startups_page():
 
 
 
+def get_next_pm(pms, tech_stack, industry_vertical, project_status):
+    try:
+        ranked_pms = rank_pm(pms, tech_stack, industry_vertical, project_status)
+        if ranked_pms:
+            next_pm = ranked_pms[0][4]  # Ensure this is the correct field (e.g., name or ID)
+            print(f"Next PM selected: {next_pm}")
+            return next_pm
+        print("No PMs ranked")
+        return None
+    except Exception as e:
+        print(f'Error in get_next_pm: {e}')
+        return None
+
+
+
+
+@app.route('/send-to-next-pm', methods=['POST'])
+def send_to_next_pm():
+    try:
+        data = request.get_json()
+        print(f"Received data: {data}")
+        project_id = data.get('project_id')
+
+        if not project_id:
+            return jsonify({'message': 'No project ID provided'}), 400
+
+        # Fetch the project from the database
+        project = mongo.db.project_details.find_one({'_id': ObjectId(project_id)})
+        if not project:
+            return jsonify({'message': 'Project not found'}), 404
+
+        print(f"Project details: {project}")
+
+        # Fetch all PMs
+        pms = list(mongo.db.product_managers.find())
+        print(f"PMs found: {pms}")
+
+        # Use the pm_ranking to determine the next PM
+        pm_ranking = project.get('pm_ranking', [])
+        if pm_ranking:
+            print(f"PM Ranking: {pm_ranking}")
+            ranked_pm_ids = [ranked_pm['id'] for ranked_pm in pm_ranking]
+
+            if len(ranked_pm_ids) > 1:
+                next_pm_id = ranked_pm_ids[1]  # Get the next PM in the ranking list
+                next_pm = mongo.db.product_managers.find_one({'_id': ObjectId(next_pm_id)})
+                pm_ranking = [pm for pm in pm_ranking if pm['id'] != ranked_pm_ids[0]]  # Update ranking list
+            else:
+                print("Reached the final PM in the ranking list.")
+                next_pm = None  # No more PMs to assign
+        else:
+            # Fallback: Use the get_next_pm function
+            next_pm = get_next_pm(pms, project['tech_stack'], project['industry_vertical'], project['project_status'])
+
+        current_pm_id = str(project.get('assigned_pm_id', ''))
+        startup_id = str(project.get('startup_id'))
+
+        if next_pm:
+            print(f"Next PM: {next_pm}")
+
+            # Ensure current_pm_id is not empty
+            if not current_pm_id:
+                raise ValueError('Assigned PM ID is not set in the project details')
+
+            # Update project with the next PM and modified ranking
+            mongo.db.project_details.update_one(
+                {'_id': ObjectId(project_id)},
+                {'$set': {
+                    'assigned_pm': next_pm['name'],
+                    'assigned_pm_id': str(next_pm['_id']),
+                    'pm_ranking': pm_ranking
+                }}
+            )
+
+            # Remove startup_id from the current PM's ideas array in pm_slots
+            result = mongo.db.pm_slots.update_one(
+                {'pm_id': current_pm_id},
+                {'$pull': {'ideas': project_id}}
+            )
+            print(f"Update result: {result.raw_result}")
+
+            return jsonify({'message': f'Project assigned to {next_pm["name"]}'}), 200
+        
+        else:
+            print(f"No suitable PM found. Storing project {project_id} in Surplus.")
+            # Store the project details in the Surplus collection
+            mongo.db.surplus.insert_one({
+                'project_id': project_id,
+                'startup_id': project.get('startup_id'),
+                'problem_statement': project.get('problem_statement'),
+                'tech_stack': project.get('tech_stack'),
+                'industry_vertical': project.get('industry_vertical'),
+                'project_status': project.get('project_status'),
+                'Feedback': project.get('Feedback'),
+                'timestamp': datetime.datetime.utcnow()
+            })
+
+            # Remove assigned_pm, assigned_pm_id, pm_ranking from project_details
+            mongo.db.project_details.update_one(
+                {'_id': ObjectId(project_id)},
+                {'$unset': {
+                    'assigned_pm': '',
+                    'assigned_pm_id': '',
+                    'pm_ranking': ''
+                }}
+            )
+
+            # Remove project_id from the ideas array in pm_slots for the last PM
+            result = mongo.db.pm_slots.update_one(
+                {'pm_id': current_pm_id},
+                {'$pull': {'ideas': project_id}}
+            )
+            print(f"Update result after storing in Surplus: {result.raw_result}")
+
+            return jsonify({'message': 'No suitable PM found, project stored in Surplus.'}), 200
+
+    except Exception as e:
+        print(f'Error: {e}')
+        return jsonify({'message': 'An error occurred on the server'}), 500
+
+
+
+
+
+
+
+
+
+
 
 
 
 @app.route('/surplus')
 @login_required
 def surplus():
-    # Fetch all project details from the project_details collection
-    all_projects = mongo.db.project_details.find()
+    # Fetch all project details from the surplus collection
+    surplus_projects = mongo.db.surplus.find()
 
     # Initialize the list to store projects with corresponding startup details
     projects_with_startup_details = []
 
-    # Iterate through all projects and fetch corresponding startup details
-    for project in all_projects:
+    # Iterate through all surplus projects and fetch corresponding startup details
+    for project in surplus_projects:
         # Get the startup_id from the project
         startup_id = project.get('startup_id')
 
@@ -382,6 +574,7 @@ def surplus():
 
     # Render the surplus page with all project details and corresponding startup details
     return render_template('surplus.html', user=current_user, projects=projects_with_startup_details)
+
 
 
 

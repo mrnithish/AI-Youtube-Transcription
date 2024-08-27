@@ -204,6 +204,25 @@
                 });
             });
 
+            $('.send-next-pm-btn').on('click', function() {
+                var projectId = $(this).data('project-id');
+
+                $.ajax({
+                    url: '/send-to-next-pm',
+                    type: 'POST',
+                    contentType: 'application/json',
+                    data: JSON.stringify({ project_id: projectId }),
+                    success: function(response) {
+                        alert(response.message);
+                        // Optionally, you might want to refresh the page or update the UI
+                        location.reload();
+                    },
+                    error: function(xhr, status, error) {
+                        console.error('AJAX Error:', status, error);
+                        alert('Error sending project to the next PM. Check console for details.');
+                    }
+                });
+            });
         });
     </script>
 </body>
