@@ -1,4 +1,4 @@
-from flask import Flask, render_template, redirect, url_for, request, flash, make_response
+from flask import Flask, render_template, redirect, url_for, request, flash, make_response,session
 from flask_pymongo import PyMongo
 from flask_bcrypt import Bcrypt
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
@@ -7,6 +7,8 @@ from allot import allot_projects
 import os,jsonify,datetime
 from flask import Flask, jsonify, request
 from rank import rank_pm
+from functools import wraps
+import uuid  # Import the uuid module
 
 app = Flask(__name__)
 app.secret_key = os.urandom(24)
@@ -18,6 +20,10 @@ mongo = PyMongo(app)
 bcrypt = Bcrypt(app)
 login_manager = LoginManager(app)
 login_manager.login_view = 'login'
+
+# Generate unique session ID
+def generate_session_id():
+    return str(uuid.uuid4())
 
 # Product Manager Model
 class ProductManager(UserMixin):
@@ -32,7 +38,6 @@ class ProductManager(UserMixin):
         self.industry_verticals = industry_verticals
         self.technology_stack = technology_stack
         self.project_status = project_status
-
 
 @login_manager.user_loader
 def load_user(user_id):
@@ -51,6 +56,32 @@ def load_user(user_id):
             _id=user_id
         )
     return None
+
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if request.method == 'POST':
+        data = request.form
+        user = mongo.db.product_managers.find_one({"email": data['email']})
+        if user and bcrypt.check_password_hash(user['password'], data['password']):
+            login_user(ProductManager(
+                name=user['name'],
+                email=user['email'],
+                password=user['password'],
+                years_experience=user['years_experience'],
+                performance_score=user['performance_score'],
+                active_projects=user['active_projects'],
+                industry_verticals=user['industry_verticals'],
+                technology_stack=user['technology_stack'],
+                project_status=user['project_status'],
+                _id=str(user['_id'])
+            ))
+
+            # Generate a unique session ID and store it in the session
+            session['session_id'] = generate_session_id()
+
+            return redirect(url_for('dashboard'))
+        flash('Invalid email or password', 'danger')
+    return render_template('login.html')
 
 @app.route('/')
 def index():
@@ -92,30 +123,19 @@ def signup():
             return redirect(url_for('signup'))
     return render_template('signup.html')
 
-@app.route('/login', methods=['GET', 'POST'])
-def login():
-    if request.method == 'POST':
-        data = request.form
-        user = mongo.db.product_managers.find_one({"email": data['email']})
-        if user and bcrypt.check_password_hash(user['password'], data['password']):
-            login_user(ProductManager(
-                name=user['name'],
-                email=user['email'],
-                password=user['password'],
-                years_experience=user['years_experience'],
-                performance_score=user['performance_score'],
-                active_projects=user['active_projects'],
-                industry_verticals=user['industry_verticals'],
-                technology_stack=user['technology_stack'],
-                project_status=user['project_status'],
-                _id=str(user['_id'])
-            ))
-            return redirect(url_for('dashboard'))
-        flash('Invalid email or password', 'danger')
-    return render_template('login.html')
+def no_cache(view):
+    @wraps(view)
+    def no_cache_view(*args, **kwargs):
+        response = make_response(view(*args, **kwargs))
+        response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+        response.headers["Pragma"] = "no-cache"
+        response.headers["Expires"] = "0"
+        return response
+    return no_cache_view
 
 @app.route('/dashboard')
 @login_required
+@no_cache
 def dashboard():
     try:
         # Get the current PM's user ID from the database
@@ -284,6 +304,7 @@ def mark_interested():
 
 @app.route('/interested_startups')
 @login_required
+@no_cache
 def interested_startups_page():
     pm_id = current_user.id
     pm_slots = mongo.db.pm_slots.find_one({'pm_id': pm_id})
@@ -340,6 +361,7 @@ def shortlist_startup():
 
 @app.route('/shortlisted_startups')
 @login_required
+@no_cache
 def shortlisted_startups_page():
     pm_id = current_user.id
     pm_slots = mongo.db.pm_slots.find_one({'pm_id': pm_id})
@@ -398,6 +420,7 @@ def finalize_startup():
 
 @app.route('/finalized_startups')
 @login_required
+@no_cache
 def finalized_startups_page():
     pm_id = current_user.id
     pm_slots = mongo.db.pm_slots.find_one({'pm_id': pm_id})
@@ -443,12 +466,54 @@ def send_to_next_pm():
         if not project_id:
             return jsonify({'message': 'No project ID provided'}), 400
 
+        # Ensure project_id is a string
+        if not isinstance(project_id, str):
+            project_id = str(project_id)
+
         # Fetch the project from the database
         project = mongo.db.project_details.find_one({'_id': ObjectId(project_id)})
         if not project:
             return jsonify({'message': 'Project not found'}), 404
 
         print(f"Project details: {project}")
+
+        # Fetch the current PM ID
+        current_pm_id = str(project.get('assigned_pm_id', ''))
+        if not current_pm_id:
+            return jsonify({'message': 'Current PM ID is not set in the project details'}), 400
+
+        # Fetch the PM's slots
+        pm_slots = mongo.db.pm_slots.find_one({'pm_id': current_pm_id})
+        if pm_slots:
+            # Get the arrays and check where project_id is present
+            ideas = pm_slots.get('ideas', [])
+            interested = pm_slots.get('interested', [])
+            shortlisted = pm_slots.get('shortlisted', [])
+            finalized = pm_slots.get('finalized', [])
+
+            # Debugging: Print the current state
+            print(f"Current ideas: {ideas}")
+            print(f"Current interested: {interested}")
+            print(f"Current shortlisted: {shortlisted}")
+
+            # Remove project_id from all relevant arrays
+            update_fields = {}
+            if project_id in ideas:
+                update_fields['ideas'] = project_id
+            if project_id in interested:
+                update_fields['interested'] = project_id
+            if project_id in shortlisted:
+                update_fields['shortlisted'] = project_id
+            if project_id in finalized:
+                update_fields['finalized'] = project_id
+
+            # Perform the update to remove project_id
+            if update_fields:
+                mongo.db.pm_slots.update_one(
+                    {'pm_id': current_pm_id},
+                    {'$pull': {field: project_id for field in update_fields}}
+                )
+                print(f"Update result: {update_fields}")
 
         # Fetch all PMs
         pms = list(mongo.db.product_managers.find())
@@ -471,15 +536,8 @@ def send_to_next_pm():
             # Fallback: Use the get_next_pm function
             next_pm = get_next_pm(pms, project['tech_stack'], project['industry_vertical'], project['project_status'])
 
-        current_pm_id = str(project.get('assigned_pm_id', ''))
-        startup_id = str(project.get('startup_id'))
-
         if next_pm:
             print(f"Next PM: {next_pm}")
-
-            # Ensure current_pm_id is not empty
-            if not current_pm_id:
-                raise ValueError('Assigned PM ID is not set in the project details')
 
             # Update project with the next PM and modified ranking
             mongo.db.project_details.update_one(
@@ -490,13 +548,6 @@ def send_to_next_pm():
                     'pm_ranking': pm_ranking
                 }}
             )
-
-            # Remove startup_id from the current PM's ideas array in pm_slots
-            result = mongo.db.pm_slots.update_one(
-                {'pm_id': current_pm_id},
-                {'$pull': {'ideas': project_id}}
-            )
-            print(f"Update result: {result.raw_result}")
 
             return jsonify({'message': f'Project assigned to {next_pm["name"]}'}), 200
         
@@ -524,33 +575,15 @@ def send_to_next_pm():
                 }}
             )
 
-            # Remove project_id from the ideas array in pm_slots for the last PM
-            result = mongo.db.pm_slots.update_one(
-                {'pm_id': current_pm_id},
-                {'$pull': {'ideas': project_id}}
-            )
-            print(f"Update result after storing in Surplus: {result.raw_result}")
-
             return jsonify({'message': 'No suitable PM found, project stored in Surplus.'}), 200
 
     except Exception as e:
         print(f'Error: {e}')
         return jsonify({'message': 'An error occurred on the server'}), 500
 
-
-
-
-
-
-
-
-
-
-
-
-
 @app.route('/surplus')
 @login_required
+@no_cache
 def surplus():
     # Fetch all project details from the surplus collection
     surplus_projects = mongo.db.surplus.find()
@@ -579,15 +612,14 @@ def surplus():
 
 
 
-
-
 @app.route('/logout')
 @login_required
 def logout():
     logout_user()
-    flash('Logged out successfully', 'success')
-    response = make_response(redirect(url_for('login')))
-    response.headers['Cache-Control'] = 'no-store'
+    response = redirect(url_for('login'))
+    response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+    response.headers["Pragma"] = "no-cache"
+    response.headers["Expires"] = "0"
     return response
 
 @app.route('/submit', methods=['POST'])
