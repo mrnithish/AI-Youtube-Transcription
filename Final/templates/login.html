@@ -4,19 +4,67 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Product Manager App - Login</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <title>Mentr - Login</title>
     <style>
+        /* Global Styles */
         body {
-            font-family: Arial, sans-serif;
-            background-color: #f4f7fa;
+            font-family: 'Roboto', sans-serif;
+            background-color: #f4f4e8;
+            margin: 0;
+            padding: 0;
             display: flex;
-            justify-content: center;
+            flex-direction: column;
             align-items: center;
             height: 100vh;
-            margin: 0;
+            justify-content: center;
         }
 
+        /* Navigation Bar */
+        .navbar {
+            width: 100%;
+            background-color: #a67c52;
+            padding: 15px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            position: fixed;
+            top: 0;
+            left: 0;
+            z-index: 1000;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .navbar h1 {
+            margin: 0;
+            font-size: 24px;
+            color: #faf4ee;
+            font-family: 'Georgia', serif;
+        }
+
+        .navbar ul {
+            list-style-type: none;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            align-items: center;
+        }
+
+        .navbar ul li {
+            margin-left: 20px;
+        }
+
+        .navbar ul li a {
+            color: #faf4ee;
+            text-decoration: none;
+            font-weight: 500;
+            font-size: 16px;
+        }
+
+        .navbar ul li a:hover {
+            text-decoration: underline;
+        }
+
+        /* Container Styles */
         .container {
             background-color: #fff;
             padding: 2rem;
@@ -25,6 +73,7 @@
             width: 100%;
             max-width: 400px;
             text-align: center;
+            margin-top: 80px; /* Adjusted for fixed navbar */
         }
 
         h2 {
@@ -49,14 +98,14 @@
 
         input[type="email"]:focus,
         input[type="password"]:focus {
-            border-color: #007bff;
+            border-color: #a67c52;
         }
 
         button {
             padding: 0.8rem;
             border: none;
             border-radius: 5px;
-            background-color: #007bff;
+            background-color: #a67c52;
             color: white;
             font-size: 1rem;
             cursor: pointer;
@@ -64,7 +113,7 @@
         }
 
         button:hover {
-            background-color: #0056b3;
+            background-color: #8b6140;
         }
 
         .signup-link {
@@ -73,7 +122,7 @@
         }
 
         .signup-link a {
-            color: #007bff;
+            color: #a67c52;
             text-decoration: none;
         }
 
@@ -81,26 +130,54 @@
             text-decoration: underline;
         }
 
-        .alert {
-            padding: 0.75rem;
-            margin-bottom: 1rem;
-            border-radius: 4px;
-            font-size: 0.9rem;
-        }
+        /* Responsive Styles */
+        @media (max-width: 768px) {
+            .navbar h1 {
+                font-size: 20px;
+            }
 
-        .alert-success {
-            background-color: #d4edda;
-            color: #155724;
-        }
+            .navbar ul li a {
+                font-size: 14px;
+            }
 
-        .alert-danger {
-            background-color: #f8d7da;
-            color: #721c24;
+            .container {
+                padding: 1.5rem;
+            }
+
+            h2 {
+                font-size: 20px;
+            }
+
+            input[type="email"],
+            input[type="password"] {
+                padding: 0.7rem;
+                font-size: 0.9rem;
+            }
+
+            button {
+                padding: 0.7rem;
+                font-size: 0.9rem;
+            }
+
+            .signup-link {
+                font-size: 0.8rem;
+            }
         }
     </style>
 </head>
 
 <body>
+    <!-- Navigation Bar -->
+    <div class="navbar">
+        <h1>Mentr</h1>
+        <ul>
+            <li><a href="/">Home</a></li>
+            <li><a href="/signup">Sign Up</a></li>
+            <li><a href="/login">Login</a></li>
+        </ul>
+    </div>
+
+    <!-- Login Form Container -->
     <div class="container">
         <!-- Flash Messages -->
         {% with messages = get_flashed_messages(with_categories=true) %}

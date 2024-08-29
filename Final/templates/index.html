@@ -1,105 +1,189 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Startup Form</title>
+    <title>Mentr - Startup Details Form</title>
     <style>
+        /* Global styles */
         body {
-            font-family: Arial, sans-serif;
+            font-family: 'Roboto', sans-serif;
+            background-color: #f4f4e8;
+            color: #333;
             margin: 0;
             padding: 0;
+            line-height: 1.6;
         }
-        .container {
-            max-width: 800px;
-            margin: 0 auto;
-            padding: 20px;
-        }
-        .header {
+
+        /* Navbar styles */
+        .navbar {
             display: flex;
-            justify-content: flex-end;
-            padding: 10px;
-            background-color: #f4f4f4;
+            justify-content: space-between;
+            align-items: center;
+            background-color: #a67c52;
+            padding: 10px 20px;
+            color: white;
         }
-        .header a {
-            margin-left: 15px;
+
+        .navbar .title {
+            font-size: 24px;
+            font-weight: bold;
+            margin: 0;
+        }
+
+        .navbar a {
+            color: #f4e4d6;
             text-decoration: none;
-            color: #007bff;
+            margin-left: 15px;
+            font-family: 'Georgia', serif;
+            font-size: 16px;
         }
-        .header a:hover {
+
+        .navbar a:hover {
             text-decoration: underline;
+            color: #e6ccb2;
         }
+
+        /* Container styles */
+        .container {
+            max-width: 700px;
+            margin: 40px auto;
+            padding: 20px;
+            background: #f5f0e6;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            border-radius: 8px;
+        }
+
         h1 {
             text-align: center;
             margin-bottom: 20px;
+            font-size: 28px;
+            font-weight: 500;
         }
+
+        /* Form styles */
         form {
             display: flex;
             flex-direction: column;
+            gap: 15px;
         }
+
         label {
-            margin-top: 10px;
+            font-size: 16px;
+            font-weight: 500;
         }
+
         input, textarea, select {
             width: 100%;
-            padding: 8px;
-            margin-top: 5px;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 16px;
+            background-color: #faf4ee;
+            box-sizing: border-box; /* Ensure inputs fill their container */
         }
+
+        input:focus, textarea:focus, select:focus {
+            outline: none;
+            border-color: #a67c52;
+            box-shadow: 0 0 5px rgba(166, 124, 82, 0.5);
+        }
+
         input[type="submit"] {
-            background-color: #007bff;
+            background-color: #a67c52;
             color: white;
             border: none;
             cursor: pointer;
-            padding: 10px;
+            font-size: 18px;
+            padding: 12px;
+            border-radius: 4px;
+            transition: background-color 0.3s;
         }
+
         input[type="submit"]:hover {
-            background-color: #0056b3;
+            background-color: #8a6542;
+        }
+
+        /* Responsive styles */
+        @media (max-width: 768px) {
+            .navbar {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+
+            .navbar .title {
+                margin-bottom: 10px;
+                font-size: 22px;
+            }
+
+            .container {
+                padding: 15px;
+            }
+
+            input, textarea, select {
+                font-size: 14px;
+                padding: 8px;
+            }
+
+            input[type="submit"] {
+                font-size: 16px;
+                padding: 10px;
+            }
         }
     </style>
 </head>
+
 <body>
-    <div class="header">
-        <a href="/signup">PM Signup</a>
-        <a href="/login">Login</a>
+    <!-- Navbar -->
+    <div class="navbar">
+        <div class="title">Mentr</div>
+        <div>
+            <a href="/signup">PM Signup</a>
+            <a href="/login">Login</a>
+        </div>
     </div>
+
+    <!-- Form Container -->
     <div class="container">
         <h1>Startup Details Form</h1>
         <form action="/submit" method="POST">
             <label for="name">Name:</label>
-            <input type="text" id="name" name="name" required><br><br>
+            <input type="text" id="name" name="name" required>
 
             <label for="email">Email:</label>
-            <input type="email" id="email" name="email" required><br><br>
+            <input type="email" id="email" name="email" required>
 
             <label for="bmc_video_link">BMC Video Link:</label>
-            <input type="text" id="bmc_video_link" name="bmc_video_link"><br><br>
+            <input type="text" id="bmc_video_link" name="bmc_video_link">
 
             <label for="startup_name">Startup Name:</label>
-            <input type="text" id="startup_name" name="startup_name" required><br><br>
+            <input type="text" id="startup_name" name="startup_name" required>
 
             <label for="problem_statement">Problem Statement:</label>
-            <textarea id="problem_statement" name="problem_statement"></textarea><br><br>
+            <textarea id="problem_statement" name="problem_statement" rows="4"></textarea>
 
             <label for="description">Description:</label>
-            <textarea id="description" name="description"></textarea><br><br>
+            <textarea id="description" name="description" rows="4"></textarea>
 
             <label for="current_status">Current Status:</label>
             <select id="current_status" name="current_status">
-                <option value="">Select Status</option>
+                <option value="" disabled selected>Select Status</option>
                 <option value="Ideation">Ideation</option>
                 <option value="MVP">MVP</option>
                 <option value="Development">Development</option>
                 <option value="Product Launch">Product Launch</option>
-            </select><br><br>
+            </select>
 
             <label for="sns_institution">SNS Institution:</label>
-            <input type="text" id="sns_institution" name="sns_institution"><br><br>
+            <input type="text" id="sns_institution" name="sns_institution">
 
-            <label for="team_details">Team Details:</label>
-            <textarea id="team_details" name="team_details"></textarea><br><br>
+            <label for="team_details">No of Team Members:</label>
+            <input type="number" id="team_details" name="team_details" min="1" max="100">
 
             <label for="industry_vertical">Industry Vertical:</label>
             <select id="industry_vertical" name="industry_vertical">
+                <option value="" disabled selected>Select Vertical</option>
                 <option value="Smart City / Manufacturing">Smart City / Manufacturing</option>
                 <option value="Health Care">Health Care</option>
                 <option value="Agriculture and Food Technology">Agriculture and Food Technology</option>
@@ -108,10 +192,11 @@
                 <option value="Retail [FMCGJ] Real Estate Entertainment & Finance">Retail [FMCGJ] Real Estate Entertainment & Finance</option>
                 <option value="Power / Energy">Power / Energy</option>
                 <option value="Other">Other</option>
-            </select><br><br>
+            </select>
 
             <label for="industry_technology">Industry Technology:</label>
             <select id="industry_technology" name="industry_technology">
+                <option value="" disabled selected>Select Technology</option>
                 <option value="Robotics and Automation">Robotics and Automation</option>
                 <option value="AR/VR/Metaverse Gaming and Digital Twins">AR/VR/Metaverse Gaming and Digital Twins</option>
                 <option value="Data Science/AI/ML">Data Science/AI/ML</option>
@@ -119,10 +204,11 @@
                 <option value="Communication and Growth Tech">Communication and Growth Tech</option>
                 <option value="Additive Manufacturing (3D Printing)">Additive Manufacturing (3D Printing)</option>
                 <option value="Low Code Development">Low Code Development</option>
-            </select><br><br>
+            </select>
 
             <input type="submit" value="Submit">
         </form>
     </div>
 </body>
+
 </html>
